@@ -389,11 +389,11 @@ class SpeakerEmbeddingLDA(nn.Module):
     def __init__(self, device: str = DEFAULT_DEVICE):
         super().__init__()
         spk_model_path = hf_hub_download(
-            repo_id="Zyphra/Zonos-v0.1-speaker-embedding",
+            repo_id="Wamp1re-Ai/Zonos-v0.1-speaker-embedding",
             filename="ResNet293_SimAM_ASP_base.pt",
         )
         lda_spk_model_path = hf_hub_download(
-            repo_id="Zyphra/Zonos-v0.1-speaker-embedding",
+            repo_id="Wamp1re-Ai/Zonos-v0.1-speaker-embedding",
             filename="ResNet293_SimAM_ASP_base_LDA-128.pt",
         )
 

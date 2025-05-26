@@ -14,7 +14,7 @@ Here we will list out all the conditionings the model accepts as well as a short
   - **uncond_type:** `learned`
   - **projection:** `linear`
 - **Description:**  
-  An embedded representation of the speakers voice. We use [these](https://huggingface.co/Zyphra/Zonos-v0.1-speaker-embedding) speaker embedding models. It can capture a surprising amount of detail from the reference clip and supports arbitrary length input. Try to input clean reference clips containing only speech. It can be valid to concatenate multiple clean samples from the same speaker into one long sample and may lead to better cloning. If the speaker clip is very long, it is advisable to cut out long speech-free background music segments if they exist. If the reference clip is yielding noisy outputs with denoising enabled we recommend doing source separation before cloning.
+  An embedded representation of the speakers voice. We use [these](https://huggingface.co/Wamp1re-Ai/Zonos-v0.1-speaker-embedding) speaker embedding models. It can capture a surprising amount of detail from the reference clip and supports arbitrary length input. Try to input clean reference clips containing only speech. It can be valid to concatenate multiple clean samples from the same speaker into one long sample and may lead to better cloning. If the speaker clip is very long, it is advisable to cut out long speech-free background music segments if they exist. If the reference clip is yielding noisy outputs with denoising enabled we recommend doing source separation before cloning.
 
   Supported by transformer and hybrid models.
 ---
@@ -70,7 +70,7 @@ Here we will list out all the conditionings the model accepts as well as a short
   - **max_val:** `126`
   - **uncond_type:** `learned`
 - **Description:**  
-  Indicates which language the output should be in. A mapping for these values can be found in the [conditioning section](https://github.com/Zyphra/Zonos/blob/3807c8e04bd4beaadb9502b3df1ffa4b0350e3f7/zonos/conditioning.py#L308C1-L376C21) of Zonos.
+  Indicates which language the output should be in. A mapping for these values can be found in the [conditioning section](https://github.com/Wamp1re-Ai/Zonos/blob/3807c8e04bd4beaadb9502b3df1ffa4b0350e3f7/zonos/conditioning.py#L308C1-L376C21) of Zonos.
 
   Supported by transformer and hybrid models.
 ---

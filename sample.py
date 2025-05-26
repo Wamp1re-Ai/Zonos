@@ -4,8 +4,8 @@ from zonos.model import Zonos
 from zonos.conditioning import make_cond_dict
 from zonos.utils import DEFAULT_DEVICE as device
 
-# model = Zonos.from_pretrained("Zyphra/Zonos-v0.1-hybrid", device=device)
-model = Zonos.from_pretrained("Zyphra/Zonos-v0.1-transformer", device=device)
+# model = Zonos.from_pretrained("Wamp1re-Ai/Zonos-v0.1-hybrid", device=device)
+model = Zonos.from_pretrained("Wamp1re-Ai/Zonos-v0.1-transformer", device=device)
 
 wav, sampling_rate = torchaudio.load("assets/exampleaudio.mp3")
 speaker = model.make_speaker_embedding(wav, sampling_rate)

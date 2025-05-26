@@ -1,0 +1,24 @@
+# Core dependencies for Zonos
+torch>=2.5.1
+torchaudio>=2.5.1
+transformers>=4.48.1
+gradio>=5.15.0
+huggingface-hub>=0.28.1
+soundfile>=0.13.1
+phonemizer>=3.3.0
+numpy>=2.0.0
+inflect>=7.5.0
+scipy>=1.11.0
+packaging
+setuptools
+
+# Japanese text processing (optional but recommended)
+kanjize>=1.5.0
+sudachidict-full>=20241021
+sudachipy>=0.6.10
+
+# Optional performance dependencies
+# Uncomment these if you want to try them in Colab
+# flash-attn>=2.7.3
+# mamba-ssm>=2.2.4
+# causal-conv1d>=1.5.0

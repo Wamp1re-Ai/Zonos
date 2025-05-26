@@ -390,7 +390,7 @@ class EnhancedVoiceCloner:
         return audio, quality_metrics
 
 
-def create_enhanced_voice_cloner(model_name: str = "Wamp1re-Ai/Zonos-v0.1-transformer",
+def create_enhanced_voice_cloner(model_name: str = "Zyphra/Zonos-v0.1-transformer",
                                 device: str = DEFAULT_DEVICE) -> EnhancedVoiceCloner:
     """
     Create an enhanced voice cloner with a pre-loaded model.
@@ -412,7 +412,7 @@ def quick_voice_clone(
     voice_audio_path: str,
     output_path: str = "cloned_speech.wav",
     language: str = "en-us",
-    model_name: str = "Wamp1re-Ai/Zonos-v0.1-transformer",
+    model_name: str = "Zyphra/Zonos-v0.1-transformer",
     device: str = DEFAULT_DEVICE,
     seed: Optional[int] = None
 ) -> Dict[str, Any]:

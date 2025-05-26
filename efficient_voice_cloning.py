@@ -399,6 +399,265 @@ class EfficientVoiceCloner:
 
         return final_audio
 
+    def generate_unlimited_speech(
+        self,
+        text: str,
+        speaker_embedding: torch.Tensor,
+        language: str = "en-us",
+        voice_quality: Optional[Dict[str, Any]] = None,
+        target_chunk_chars: int = 1000,
+        cfg_scale: float = 2.0,
+        seed: Optional[int] = None,
+        progress_callback: Optional[callable] = None
+    ) -> torch.Tensor:
+        """
+        Generate speech of unlimited length with no restrictions.
+
+        This method can handle texts of ANY length by using intelligent chunking
+        and unlimited token calculation.
+
+        Args:
+            text: Text to synthesize (ANY LENGTH!)
+            speaker_embedding: Speaker embedding from clone_voice_from_audio
+            language: Language code
+            voice_quality: Voice quality metrics
+            target_chunk_chars: Target characters per chunk (flexible)
+            cfg_scale: Classifier-free guidance scale
+            seed: Random seed
+            progress_callback: Optional progress callback function
+
+        Returns:
+            Generated audio tensor (unlimited length)
+        """
+        start_time = time.time()
+        self.stats['total_generations'] += 1
+
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        print(f"🚀 UNLIMITED Speech Generation Started!")
+        print(f"📝 Text length: {len(text)} characters")
+        print(f"⚡ NO LENGTH LIMITS - Can generate hours of audio!")
+
+        # For very long texts, use intelligent chunking
+        if len(text) > target_chunk_chars:
+            print(f"📊 Long text detected, using intelligent chunking...")
+            return self._generate_chunked_unlimited(
+                text, speaker_embedding, language, voice_quality,
+                target_chunk_chars, cfg_scale, seed, progress_callback
+            )
+        else:
+            # For shorter texts, generate directly with unlimited tokens
+            print(f"📊 Generating directly with unlimited tokens...")
+            with torch.amp.autocast(self.device, enabled=self.use_fp16, dtype=self.dtype):
+                audio = self._generate_unlimited_chunk(
+                    text, speaker_embedding, language, voice_quality, cfg_scale
+                )
+
+            total_time = time.time() - start_time
+            audio_duration = audio.shape[-1] / self.model.autoencoder.sampling_rate
+            rtf = total_time / audio_duration
+
+            print(f"✅ UNLIMITED Generation completed!")
+            print(f"   ⏱️ Time: {total_time:.2f}s")
+            print(f"   🎵 Duration: {audio_duration:.2f}s")
+            print(f"   📊 RTF: {rtf:.4f}")
+
+            return audio
+
+    def _generate_chunked_unlimited(
+        self,
+        text: str,
+        speaker_embedding: torch.Tensor,
+        language: str,
+        voice_quality: Optional[Dict[str, Any]],
+        target_chunk_chars: int,
+        cfg_scale: float,
+        seed: Optional[int],
+        progress_callback: Optional[callable]
+    ) -> torch.Tensor:
+        """Generate unlimited audio using intelligent chunking."""
+
+        # Intelligent text chunking at natural boundaries
+        chunks = self._intelligent_text_chunking(text, target_chunk_chars)
+        total_chunks = len(chunks)
+
+        print(f"🗂️ Split into {total_chunks} intelligent chunks")
+        chunk_sizes = [len(chunk) for chunk in chunks]
+        print(f"📊 Chunk sizes: {chunk_sizes}")
+
+        # Generate audio for each chunk
+        all_audio_chunks = []
+
+        for chunk_idx, chunk_text in enumerate(chunks):
+            if progress_callback:
+                progress = chunk_idx / total_chunks
+                progress_callback(progress, f"Processing unlimited chunk {chunk_idx + 1}/{total_chunks}")
+
+            print(f"\n🔄 Processing chunk {chunk_idx + 1}/{total_chunks}")
+            print(f"📝 Chunk: {chunk_text[:100]}{'...' if len(chunk_text) > 100 else ''}")
+
+            # Generate audio for this chunk with unlimited tokens
+            with torch.amp.autocast(self.device, enabled=self.use_fp16, dtype=self.dtype):
+                chunk_audio = self._generate_unlimited_chunk(
+                    chunk_text, speaker_embedding, language, voice_quality, cfg_scale
+                )
+
+            chunk_duration = chunk_audio.shape[-1] / self.model.autoencoder.sampling_rate
+            print(f"🎵 Generated {chunk_duration:.1f}s of audio")
+
+            all_audio_chunks.append(chunk_audio.cpu())
+
+            # Clean up GPU memory
+            self._torch_empty_cache()
+
+        # Concatenate with natural pauses
+        if progress_callback:
+            progress_callback(0.95, "Concatenating unlimited audio...")
+
+        print(f"\n🔗 Concatenating {len(all_audio_chunks)} unlimited chunks...")
+
+        if len(all_audio_chunks) > 1:
+            # Add natural pauses between chunks (300ms)
+            pause_samples = int(0.3 * self.model.autoencoder.sampling_rate)
+            pause = torch.zeros(1, pause_samples, dtype=self.dtype)
+
+            final_chunks = []
+            for i, chunk in enumerate(all_audio_chunks):
+                final_chunks.append(chunk)
+                if i < len(all_audio_chunks) - 1:
+                    final_chunks.append(pause)
+
+            final_audio = torch.cat(final_chunks, dim=1)
+        else:
+            final_audio = all_audio_chunks[0]
+
+        return final_audio
+
+    def _intelligent_text_chunking(self, text: str, target_chunk_chars: int) -> List[str]:
+        """Intelligently chunk text at natural boundaries."""
+        if len(text) <= target_chunk_chars:
+            return [text]
+
+        chunks = []
+        current_chunk = ""
+
+        # Split by paragraphs first
+        paragraphs = text.split('\n\n')
+
+        for paragraph in paragraphs:
+            paragraph = paragraph.strip()
+            if not paragraph:
+                continue
+
+            # If paragraph fits in current chunk, add it
+            if len(current_chunk) + len(paragraph) + 2 <= target_chunk_chars:
+                if current_chunk:
+                    current_chunk += "\n\n" + paragraph
+                else:
+                    current_chunk = paragraph
+            else:
+                # Save current chunk if it exists
+                if current_chunk:
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+
+                # If paragraph is too long, split by sentences
+                if len(paragraph) > target_chunk_chars:
+                    sentences = re.split(r'[.!?]+', paragraph)
+                    temp_chunk = ""
+
+                    for sentence in sentences:
+                        sentence = sentence.strip()
+                        if not sentence:
+                            continue
+
+                        if len(temp_chunk) + len(sentence) + 1 <= target_chunk_chars:
+                            if temp_chunk:
+                                temp_chunk += ". " + sentence
+                            else:
+                                temp_chunk = sentence
+                        else:
+                            if temp_chunk:
+                                chunks.append(temp_chunk + ".")
+                            temp_chunk = sentence
+
+                    if temp_chunk:
+                        current_chunk = temp_chunk + "."
+                else:
+                    current_chunk = paragraph
+
+        # Add final chunk
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        return chunks
+
+    def _generate_unlimited_chunk(
+        self,
+        text: str,
+        speaker_embedding: torch.Tensor,
+        language: str,
+        voice_quality: Optional[Dict[str, Any]],
+        cfg_scale: float
+    ) -> torch.Tensor:
+        """Generate audio for a chunk with unlimited token calculation."""
+
+        # Create conditioning dictionary
+        cond_dict_params = {
+            "text": text,
+            "language": language,
+            "speaker": speaker_embedding,
+            "device": self.device
+        }
+
+        # Add voice quality parameters if available
+        if voice_quality:
+            if 'emotion_scores' in voice_quality:
+                emotion_tensor = torch.tensor(voice_quality['emotion_scores'], device=self.device)
+                cond_dict_params['emotion'] = emotion_tensor
+
+            for param in ['speaking_rate', 'pitch_std', 'fmax', 'dnsmos_ovrl']:
+                if param in voice_quality:
+                    cond_dict_params[param] = voice_quality[param]
+
+            if 'vq_score' in voice_quality:
+                vq_tensor = torch.tensor([voice_quality['vq_score']] * 8, device=self.device).unsqueeze(0)
+                cond_dict_params['vqscore_8'] = vq_tensor
+
+        # Create conditioning dictionary
+        cond_dict = make_cond_dict(**cond_dict_params)
+        conditioning = self.model.prepare_conditioning(cond_dict)
+
+        # Calculate tokens dynamically - NO CAPS!
+        tokens_per_char = 30  # Higher for unlimited quality
+        estimated_tokens = len(text) * tokens_per_char
+        min_tokens = 500
+
+        # NO MAXIMUM CAP! Let it generate as long as needed
+        max_tokens = max(min_tokens, estimated_tokens)
+
+        print(f"🚀 UNLIMITED chunk: {len(text)} chars → {max_tokens} tokens (NO CAP!)")
+
+        # Generate audio codes
+        codes = self.model.generate(
+            prefix_conditioning=conditioning,
+            max_new_tokens=max_tokens,
+            cfg_scale=cfg_scale,
+            batch_size=1,
+            sampling_params={"min_p": 0.1, "top_k": 0, "top_p": 0.0},
+            progress_bar=True
+        )
+
+        # Decode to audio
+        audio = self.model.autoencoder.decode(codes).cpu().detach()
+
+        # Ensure mono output
+        if audio.dim() == 2 and audio.size(0) > 1:
+            audio = audio[0:1, :]
+
+        return audio.to(self.device, dtype=self.dtype)
+
     def _generate_single_sentence(
         self,
         text: str,
@@ -443,11 +702,15 @@ class EfficientVoiceCloner:
         # Prepare conditioning
         conditioning = self.model.prepare_conditioning(cond_dict)
 
-        # Calculate tokens for this sentence (improved calculation)
-        tokens_per_char = 20
+        # Calculate tokens for this sentence (UNLIMITED - NO CAPS!)
+        tokens_per_char = 25  # Increased for better quality
         estimated_tokens = len(text) * tokens_per_char
-        min_tokens = 500  # Smaller minimum for individual sentences
-        max_tokens = max(min_tokens, min(estimated_tokens, 86 * 30))  # Cap at 30 seconds per sentence
+        min_tokens = 500  # Minimum for quality
+
+        # NO MAXIMUM CAP! Let it generate as long as needed
+        max_tokens = max(min_tokens, estimated_tokens)
+
+        print(f"🚀 UNLIMITED tokens: {max_tokens} for {len(text)} chars (NO CAP!)")
 
         # Generate audio codes
         codes = self.model.generate(

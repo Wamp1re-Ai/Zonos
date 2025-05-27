@@ -26,20 +26,30 @@ Our model enables highly natural speech generation from text prompts when given 
 
 ---
 
-## Enhanced Voice Cloning with Google Colab
+## Available Notebooks
 
-The easiest way to use Zonos is through our Enhanced Voice Cloning Google Colab notebook.
+We provide two Google Colab notebooks for different use cases:
 
+### 1. Enhanced Voice Cloning Notebook
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Wamp1re-Ai/Zonos/blob/main/Enhanced_Voice_Cloning_Colab.ipynb)
 
-**What's improved in the Colab notebook:**
+**File:** `Enhanced_Voice_Cloning_Colab.ipynb`
+
+This is the **recommended notebook** with advanced features:
 - ✅ **80% reduction** in gibberish generation
-- ✅ **60% improvement** in timing consistency
+- ✅ **60% improvement** in timing consistency  
 - ✅ **No more unnatural pauses** or speed variations
 - ✅ **Advanced audio preprocessing** with quality analysis
 - ✅ **Interactive Google Colab interface** with easy controls
 
-Click the badge above for instant access to the Colab notebook. All necessary dependencies and setup are handled within the notebook environment.
+### 2. Basic Demo Notebook
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Wamp1re-Ai/Zonos/blob/main/Zonos_Colab_Demo.ipynb)
+
+**File:** `Zonos_Colab_Demo.ipynb`
+
+A simpler notebook for quick testing and basic voice cloning functionality.
+
+---
 
 ## Features (via Colab)
 

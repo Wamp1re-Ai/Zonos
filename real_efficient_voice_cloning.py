@@ -182,11 +182,13 @@ class RealEfficientVoiceCloner:
     def _optimize_model(self):
         """Apply model-level optimizations."""
         try:
-            # Enable torch.compile for faster execution (PyTorch 2.0+)
-            if hasattr(torch, 'compile') and torch.cuda.is_available():
-                print("🔧 Applying torch.compile optimization...")
-                self.model = torch.compile(self.model, mode="reduce-overhead")
-                print("✅ torch.compile applied")
+            # Disable torch.compile due to C++ compilation issues in Colab
+            print("⚠️ torch.compile disabled - causes C++ compilation errors in Colab")
+            print("🔧 Using eager mode for compatibility")
+            # if hasattr(torch, 'compile') and torch.cuda.is_available():
+            #     print("🔧 Applying torch.compile optimization...")
+            #     self.model = torch.compile(self.model, mode="reduce-overhead")
+            #     print("✅ torch.compile applied")
         except Exception as e:
             print(f"⚠️ torch.compile failed: {e}")
 

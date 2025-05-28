@@ -1,3 +1,5 @@
+# To use a Cloudflare subdomain, set the GRADIO_SUBDOMAIN environment variable
+# Example: GRADIO_SUBDOMAIN=my-zonos-app GRADIO_SHARE=true python gradio_interface.py
 import torch
 import torchaudio
 import gradio as gr
@@ -21,7 +23,15 @@ def load_model_if_needed(model_choice: str):
             del CURRENT_MODEL
             torch.cuda.empty_cache()
         print(f"Loading {model_choice} model...")
-        CURRENT_MODEL = Zonos.from_pretrained(model_choice, device=device)
+        
+        # Check if custom model path is provided in environment
+        model_path = getenv("ZONOS_MODEL_PATH", None)
+        if model_path and model_choice in model_path:
+            print(f"Using custom model path: {model_path}")
+            CURRENT_MODEL = Zonos.from_pretrained(model_path, device=device)
+        else:
+            CURRENT_MODEL = Zonos.from_pretrained(model_choice, device=device)
+            
         CURRENT_MODEL.requires_grad_(False).eval()
         CURRENT_MODEL_TYPE = model_choice
         print(f"{model_choice} model loaded successfully!")
@@ -206,10 +216,10 @@ def generate_audio(
 def build_interface():
     supported_models = []
     if "transformer" in ZonosBackbone.supported_architectures:
-        supported_models.append("Zyphra/Zonos-v0.1-transformer")
+        supported_models.append("Wamp1re-Ai/Zonos-v0.1-transformer")
 
     if "hybrid" in ZonosBackbone.supported_architectures:
-        supported_models.append("Zyphra/Zonos-v0.1-hybrid")
+        supported_models.append("Wamp1re-Ai/Zonos-v0.1-hybrid")
     else:
         print(
             "| The current ZonosBackbone does not support the hybrid architecture, meaning only the transformer model will be available in the model selector.\n"
@@ -416,4 +426,16 @@ def build_interface():
 if __name__ == "__main__":
     demo = build_interface()
     share = getenv("GRADIO_SHARE", "False").lower() in ("true", "1", "t")
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=share)
+    share_subdomain = getenv("GRADIO_SUBDOMAIN", None)
+    
+    # Launch with Cloudflare subdomain if provided
+    if share_subdomain:
+        print(f"Launching with Cloudflare subdomain: {share_subdomain}")
+        demo.launch(
+            server_name="0.0.0.0", 
+            server_port=7860, 
+            share=share, 
+            share_subdomain=share_subdomain
+        )
+    else:
+        demo.launch(server_name="0.0.0.0", server_port=7860, share=share)

@@ -1,5 +1,6 @@
 import math
 from functools import cache
+import warnings
 
 import torch
 import torch.nn as nn
@@ -410,3 +411,187 @@ class SpeakerEmbeddingLDA(nn.Module):
     def forward(self, wav: torch.Tensor, sample_rate: int):
         emb = self.model(wav, sample_rate).to(torch.float32)
         return emb, self.lda(emb)
+
+
+# Enhanced Voice Cloning Functions
+def preprocess_audio_for_cloning(wav: torch.Tensor, sample_rate: int,
+                                target_length_seconds: float = None,
+                                normalize: bool = True,
+                                remove_silence: bool = True) -> torch.Tensor:
+    """
+    Preprocess audio for better voice cloning quality.
+
+    Args:
+        wav: Input audio tensor
+        sample_rate: Sample rate of the audio
+        target_length_seconds: Target length in seconds (None for no trimming)
+        normalize: Whether to normalize audio amplitude
+        remove_silence: Whether to remove leading/trailing silence
+
+    Returns:
+        Preprocessed audio tensor
+    """
+    # Convert to mono if stereo
+    if wav.ndim == 2 and wav.shape[0] > 1:
+        wav = wav.mean(0, keepdim=True)
+    elif wav.ndim == 1:
+        wav = wav.unsqueeze(0)
+
+    # Remove silence from beginning and end
+    if remove_silence:
+        # Simple energy-based silence detection
+        energy = wav.pow(2).mean(dim=0)
+        threshold = energy.max() * 0.01  # 1% of max energy
+        non_silent = energy > threshold
+
+        if non_silent.any():
+            start_idx = non_silent.nonzero()[0].item()
+            end_idx = non_silent.nonzero()[-1].item() + 1
+            wav = wav[:, start_idx:end_idx]
+
+    # Normalize audio
+    if normalize:
+        max_val = wav.abs().max()
+        if max_val > 0:
+            wav = wav / max_val * 0.95  # Normalize to 95% to avoid clipping
+
+    # Trim to target length if specified
+    if target_length_seconds is not None:
+        target_samples = int(target_length_seconds * sample_rate)
+        if wav.shape[1] > target_samples:
+            # Take from the middle for better voice characteristics
+            start_idx = (wav.shape[1] - target_samples) // 2
+            wav = wav[:, start_idx:start_idx + target_samples]
+        elif wav.shape[1] < target_samples:
+            # Pad with silence if too short
+            padding = target_samples - wav.shape[1]
+            wav = torch.nn.functional.pad(wav, (0, padding))
+
+    return wav
+
+
+def analyze_voice_quality(wav: torch.Tensor, sample_rate: int) -> dict:
+    """
+    Analyze voice quality metrics for cloning assessment.
+
+    Args:
+        wav: Audio tensor
+        sample_rate: Sample rate
+
+    Returns:
+        Dictionary with quality metrics
+    """
+    # Convert to mono if needed
+    if wav.ndim == 2 and wav.shape[0] > 1:
+        wav = wav.mean(0)
+    elif wav.ndim == 1:
+        pass
+    else:
+        wav = wav.squeeze()
+
+    # Basic quality metrics
+    duration = wav.shape[0] / sample_rate
+    rms_energy = torch.sqrt(torch.mean(wav**2)).item()
+    peak_amplitude = torch.max(torch.abs(wav)).item()
+
+    # Signal-to-noise ratio estimation (simple)
+    # Use the quietest 10% as noise estimate
+    sorted_abs = torch.sort(torch.abs(wav))[0]
+    noise_level = sorted_abs[:len(sorted_abs)//10].mean().item()
+    signal_level = rms_energy
+    snr_estimate = 20 * torch.log10(torch.tensor(signal_level / (noise_level + 1e-8))).item()
+
+    # Dynamic range
+    dynamic_range = 20 * torch.log10(torch.tensor(peak_amplitude / (rms_energy + 1e-8))).item()
+
+    return {
+        'duration': duration,
+        'rms_energy': rms_energy,
+        'peak_amplitude': peak_amplitude,
+        'snr_estimate': snr_estimate,
+        'dynamic_range': dynamic_range,
+        'quality_score': min(1.0, max(0.0, (snr_estimate + 20) / 40))  # Normalized quality score
+    }
+
+
+def get_voice_cloning_conditioning_params(voice_quality: dict = None) -> dict:
+    """
+    Get optimized conditioning parameters for voice cloning based on voice quality.
+
+    Args:
+        voice_quality: Voice quality metrics from analyze_voice_quality
+
+    Returns:
+        Dictionary of conditioning parameters optimized for voice cloning
+    """
+    # Base parameters optimized for voice cloning
+    base_params = {
+        'emotion': [0.1, 0.05, 0.05, 0.05, 0.05, 0.05, 0.15, 0.5],  # More neutral, less emotional variation
+        'fmax': 22050.0,  # Optimal for voice cloning
+        'pitch_std': 15.0,  # Reduced for more consistent pitch
+        'speaking_rate': 12.0,  # Slower, more controlled rate
+        'vqscore_8': [0.75] * 8,  # Slightly lower for more natural sound
+        'dnsmos_ovrl': 3.8,  # Slightly lower for naturalness
+        'speaker_noised': False,  # Clean speaker embedding
+    }
+
+    # Adjust based on voice quality if provided
+    if voice_quality:
+        quality_score = voice_quality.get('quality_score', 0.5)
+
+        # Adjust pitch variation based on quality
+        if quality_score > 0.7:
+            base_params['pitch_std'] = 18.0  # Can handle slightly more variation
+        elif quality_score < 0.3:
+            base_params['pitch_std'] = 12.0  # Very conservative for poor quality
+
+        # Adjust speaking rate based on quality
+        if quality_score > 0.8:
+            base_params['speaking_rate'] = 14.0  # Can be slightly faster
+        elif quality_score < 0.4:
+            base_params['speaking_rate'] = 10.0  # Very slow for poor quality
+
+        # Adjust VQ score based on quality
+        if quality_score > 0.6:
+            base_params['vqscore_8'] = [0.78] * 8
+        else:
+            base_params['vqscore_8'] = [0.72] * 8
+
+    return base_params
+
+
+def get_voice_cloning_sampling_params(voice_quality: dict = None) -> dict:
+    """
+    Get optimized sampling parameters for voice cloning.
+
+    Args:
+        voice_quality: Voice quality metrics from analyze_voice_quality
+
+    Returns:
+        Dictionary of sampling parameters optimized for voice cloning
+    """
+    # Conservative sampling for consistency
+    base_params = {
+        'min_p': 0.05,  # More conservative than default 0.1
+        'top_k': 0,     # Disabled
+        'top_p': 0.0,   # Disabled
+        'temperature': 0.8,  # Slightly lower temperature for consistency
+        'repetition_penalty': 1.5,  # Lower repetition penalty to avoid unnatural pauses
+        'repetition_penalty_window': 3,  # Shorter window
+    }
+
+    # Adjust based on voice quality
+    if voice_quality:
+        quality_score = voice_quality.get('quality_score', 0.5)
+
+        if quality_score > 0.7:
+            # High quality voice can handle slightly more variation
+            base_params['min_p'] = 0.08
+            base_params['temperature'] = 0.85
+        elif quality_score < 0.4:
+            # Poor quality voice needs very conservative sampling
+            base_params['min_p'] = 0.03
+            base_params['temperature'] = 0.7
+            base_params['repetition_penalty'] = 1.2
+
+    return base_params

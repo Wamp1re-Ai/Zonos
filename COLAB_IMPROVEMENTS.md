@@ -115,7 +115,7 @@ def simple_enhanced_generate_speech(text, speaker_embedding=None, **kwargs):
 
 ## 🚀 **How to Use**
 
-1. **Open the notebook**: [Enhanced Voice Cloning Colab](https://colab.research.google.com/github/Wamp1re-Ai/Zonos/blob/main/Enhanced_Voice_Cloning_Colab.ipynb)
+1. **Open the notebook**: [Enhanced Voice Cloning Colab](https://colab.research.google.com/github/Wamp1re-Ai/Zonos/blob/efficient/Enhanced_Voice_Cloning_Colab.ipynb)
 
 2. **Run Cell 1**: Setup (30 seconds)
 
@@ -139,10 +139,10 @@ def simple_enhanced_generate_speech(text, speaker_embedding=None, **kwargs):
 
 ## 🎯 **Summary**
 
-✅ **Removed duplicate cells** - cleaner notebook structure  
-⚡ **Added UV for 10x faster installation** - setup in minutes, not hours  
-🚀 **Enhanced voice cloning always works** - reliable fallback functions  
-📊 **Much better performance** - faster generation, better quality  
-🔧 **Better error handling** - robust and user-friendly  
+✅ **Removed duplicate cells** - cleaner notebook structure
+⚡ **Added UV for 10x faster installation** - setup in minutes, not hours
+🚀 **Enhanced voice cloning always works** - reliable fallback functions
+📊 **Much better performance** - faster generation, better quality
+🔧 **Better error handling** - robust and user-friendly
 
 **Result**: A dramatically improved Google Colab experience with reliable enhanced voice cloning! 🎤✨
